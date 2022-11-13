@@ -43,7 +43,7 @@ impl UserStack {
         self.data.as_ptr() as usize + USER_STACK_SIZE
     }
 }
-
+// 应用管理器 AppManager
 struct AppManager {
     num_app: usize,
     current_app: usize,
@@ -88,8 +88,12 @@ impl AppManager {
         self.current_app += 1;
     }
 }
-
+// 初始化 AppManager 的全局实例
+// lazy_static! 宏提供了全局变量的运行时初始化功能。
+// 只有在它第一次被使用到的时候才会进行实际的初始化工作。
 lazy_static! {
+    // 就是找到 link_app.S 中提供的符号 _num_app
+    // 用容器 UPSafeCell 包裹 AppManager 是为了防止全局对象 APP_MANAGER 被重复获取
     static ref APP_MANAGER: UPSafeCell<AppManager> = unsafe {
         UPSafeCell::new({
             extern "C" {

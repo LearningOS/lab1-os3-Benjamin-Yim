@@ -15,7 +15,9 @@ mod sync;
 mod syscall;
 mod trap;
 
+// 这里我们引入了一段汇编代码 entry.asm
 core::arch::global_asm!(include_str!("entry.asm"));
+// 这里我们引入了一段汇编代码 link_app.S,是在 make run 构建操作系统时自动生成的
 core::arch::global_asm!(include_str!("link_app.S"));
 
 fn clear_bss() {
