@@ -16,11 +16,11 @@ mod lang_items;
 mod loader;
 mod logging;
 mod sbi;
-mod sync;
 mod syscall;
 mod task;
 mod timer;
 mod trap;
+mod sync;
 
 core::arch::global_asm!(include_str!("entry.asm"));
 core::arch::global_asm!(include_str!("link_app.S"));
