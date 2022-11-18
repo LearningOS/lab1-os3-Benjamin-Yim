@@ -4,16 +4,11 @@ mod task;
 mod context;
 mod switch;
 
-use core::borrow::BorrowMut;
-use core::cell::RefCell;
-
-use alloc::borrow::ToOwned;
-use alloc::boxed::Box;
 use lazy_static::*;
 use crate::loader::{get_num_app,init_app_cx};
 use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::sync::UPSafeCell;
-use crate::timer::{get_time, get_time_ms};
+use crate::timer::{get_time_ms};
 pub use switch::__switch;
 pub use task::{TaskControlBlock,TaskStatus};
 pub use context::TaskContext;
@@ -125,7 +120,7 @@ impl TaskManager {
     fn mark_current_exited(&self){
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        println!("[kernel] mark current task {} exit,task run total time,{}",current,inner.tasks[current].task_run_total_time);
+        // println!("[kernel] mark current task {} exit,task run total time,{}",current,inner.tasks[current].task_run_total_time);
         inner.tasks[current].task_status = TaskStatus::Exited;
     }
 }

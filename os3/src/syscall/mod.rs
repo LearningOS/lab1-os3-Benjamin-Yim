@@ -28,6 +28,6 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize{
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_GET_TIME => sys_get_time(args[0] as *mut TimeVal, args[1]),
         SYSCALL_TASK_INFO => sys_task_info(args[0] as *mut TaskInfo),
-        _ => panic!("not support syscall syscall_id:{}", syscall_id),
+        _ => panic!("not wsupport syscall syscall_id:{}", syscall_id),
     }
 }

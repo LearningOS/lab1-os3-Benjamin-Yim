@@ -21,7 +21,7 @@ pub struct TaskInfo{
 }
 
 pub fn sys_exit(exit_code: i32) -> ! {
-    println!("[kernel] Application exited with code {}", exit_code);
+    // println!("[kernel] Application exited with code {}", exit_code);
     exit_current_and_run_next();
     panic!("Unreachable in sys_exit!");
 }
@@ -48,16 +48,14 @@ pub fn sys_get_time(ts: *mut TimeVal,_tz: usize) -> isize{
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
     let current = current_task();
     unsafe {
-        println!("[kernel] println task info");
-        println!("[kernel] task info {}", current.task_run_total_time);
-        println!("[kernel] task syscall total {}", current.syscall_total);
         let array = current.syscall_arr.clone();
         *ti = TaskInfo{
             status: current.task_status,
-            time: current.syscall_total,
+            time: current.task_run_total_time,
             syscall_time: array,
         }
     }
+    println!("{:?}",ti);
 
     0
 }
