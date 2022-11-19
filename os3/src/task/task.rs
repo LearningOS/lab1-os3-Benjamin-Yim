@@ -1,6 +1,6 @@
 use core::cell::{Ref, RefCell, Cell};
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 
 use crate::{config::{MAX_APP_NUM, MAX_SYSCALL_NUM}, sync::UPSafeCell};
 
@@ -17,7 +17,7 @@ pub enum TaskStatus{
 
 
 // 任务控制块
-#[derive(Copy,Clone)]
+#[derive(Clone)]
 pub struct TaskControlBlock{
     // 当前任务状态
     pub task_status: TaskStatus,
@@ -27,7 +27,8 @@ pub struct TaskControlBlock{
     pub task_run_start_time: usize,
     // 当前任务运行总长
     pub task_run_total_time: usize,
-    pub syscall_total: usize,
+    // 当前任务调用系统调用时时长
+    pub task_run_syscall_total_time: usize,
     // 每次发生系统调用加1
-    pub syscall_arr: &'static [u32;MAX_SYSCALL_NUM],
+    pub syscall_arr: Vec<u32>,
 }

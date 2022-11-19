@@ -4,11 +4,15 @@ mod task;
 mod context;
 mod switch;
 
+use core::borrow::{Borrow, BorrowMut};
+
+use alloc::borrow::ToOwned;
+use alloc::vec::{Vec, self};
 use lazy_static::*;
 use crate::loader::{get_num_app,init_app_cx};
 use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::sync::UPSafeCell;
-use crate::timer::{get_time_ms};
+use crate::timer::{get_time, get_time_us};
 pub use switch::__switch;
 pub use task::{TaskControlBlock,TaskStatus};
 pub use context::TaskContext;
@@ -61,31 +65,58 @@ impl TaskManager {
     fn mark_current_suspended(&self){
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        inner.tasks[current].task_status = TaskStatus::Ready;
-        if inner.tasks[current].task_run_start_time != 0 {
-            inner.tasks[current].task_run_total_time = inner.tasks[current].task_run_total_time + (get_time_ms() -inner.tasks[current].task_run_start_time)
+        if inner.tasks[current].task_status == TaskStatus::Running {
+            inner.tasks[current].task_run_total_time = inner.tasks[current].task_run_total_time + (get_time() - inner.tasks[current].task_run_start_time)
         }
+        inner.tasks[current].task_status = TaskStatus::Ready;
+        inner.tasks[current].task_run_start_time = 0;
+        
     }
 
-    fn current_task(&self) -> TaskControlBlock{
-        let inner = self.inner.exclusive_access();
+
+    fn current_task_mark_syscall(&self,syscall_id: usize) {
+        let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        let current_task = inner.tasks[current];
-        current_task
+        let current_task = inner.tasks[current].borrow_mut();
+        current_task.syscall_arr[syscall_id] = current_task.syscall_arr[syscall_id]+1;
+       
     }
 
+    fn current_task_syscall_arr(&self) -> Vec<u32> {
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].syscall_arr.clone()
+    }
+
+    fn current_task_status(&self) -> TaskStatus{
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].task_status
+    }
+
+    fn current_task_run_total_time(&self) -> usize{
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].task_run_total_time
+    }
+    fn task_run_syscall_total_time(&self) -> usize {
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].task_run_syscall_total_time
+    }
+    fn mark_task_run_syscall_total_time(&self, time: usize){
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let current_task = inner.tasks[current].borrow_mut();
+        current_task.task_run_syscall_total_time += time;
+    }
     /**
      * 查找下一个任务并运行
      */
     fn run_next_task(&self){
         // 会调用 find_next_task 方法尝试寻找一个运行状态为 Ready 的应用并获得其 ID 
         if let Some(next) = self.find_next_task(){
-            // println!("run next task id {}",next);
             let mut inner = self.inner.exclusive_access();
             let current  = inner.current_task;
             // 标记当前任务为运行状态
             inner.tasks[next].task_status = TaskStatus::Running;
-            inner.tasks[next].task_run_start_time = get_time_ms();
+            inner.tasks[next].task_run_start_time = get_time();
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
@@ -110,7 +141,6 @@ impl TaskManager {
         let task =  (current + 1..current + self.num_app + 1)
         .map(|id| id % self.num_app)
         .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready);
-        // println!("task id {:?}",task);
         task
     }
 
@@ -120,24 +150,37 @@ impl TaskManager {
     fn mark_current_exited(&self){
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        // println!("[kernel] mark current task {} exit,task run total time,{}",current,inner.tasks[current].task_run_total_time);
+        if inner.tasks[current].task_status == TaskStatus::Running {
+            inner.tasks[current].task_run_total_time = inner.tasks[current].task_run_total_time + (get_time() - inner.tasks[current].task_run_start_time)
+        }
         inner.tasks[current].task_status = TaskStatus::Exited;
+        inner.tasks[current].task_run_start_time = 0;
     }
 }
 
 lazy_static!{
     pub static ref TASK_MANAGER: TaskManager = {
         let num_app = get_num_app();
-        let array = &[0;MAX_SYSCALL_NUM];
-        let mut tasks = [TaskControlBlock{
-            task_cx: TaskContext::zero_init(),
-            task_status: TaskStatus::UnInit,
-            task_run_start_time: 0,
-            task_run_total_time: 0,
-            syscall_total: 0,
-            syscall_arr:  array,
-        }; MAX_APP_NUM];
-        
+        let mut tasks:[TaskControlBlock;MAX_APP_NUM] = unsafe {core::mem::MaybeUninit::uninit().assume_init()}; 
+        let mut i = 0;
+        while i< MAX_APP_NUM {
+            tasks[i] = TaskControlBlock{
+                    task_cx: TaskContext::zero_init(),
+                    task_status: TaskStatus::UnInit,
+                    task_run_start_time: get_time(),
+                    task_run_total_time: 0,
+                    task_run_syscall_total_time :0,
+                    syscall_arr:  Vec::with_capacity(MAX_SYSCALL_NUM),
+                };
+            let v:&mut Vec<u32> = tasks[i].syscall_arr.borrow_mut();
+            let mut index = 0;
+            while index < MAX_SYSCALL_NUM {
+                v.push(0);
+                index+=1;
+            }
+            i+=1;
+        }
+
         // CPU 第一次从内核态进入用户态的方法，只需在内核栈上压入构造好的 Trap 上下文， 然后 __restore 即可
         for (i,t) in tasks.iter_mut().enumerate().take(num_app) {
             // init_app_cx 在 loader 子模块中定义，它向内核栈压入了一个 Trap 上下文，并返回压入 Trap 上下文后 sp 的值。
@@ -175,8 +218,26 @@ fn mark_current_exited(){
     TASK_MANAGER.mark_current_exited();
 }
 
-fn __current_task() -> TaskControlBlock{
-    TASK_MANAGER.current_task()
+pub fn current_task_mark_syscall(syscall_id: usize){
+    TASK_MANAGER.current_task_mark_syscall(syscall_id)
+}
+
+pub fn current_task_syscall_arr() -> Vec<u32>{
+    TASK_MANAGER.current_task_syscall_arr()
+}
+
+pub fn current_task_status() -> TaskStatus {
+    TASK_MANAGER.current_task_status()
+}
+
+pub fn current_task_run_total_time() -> usize{
+    TASK_MANAGER.current_task_run_total_time()
+}
+pub fn task_run_syscall_total_time() -> usize{
+    TASK_MANAGER.task_run_syscall_total_time()
+}
+pub fn mark_task_run_syscall_total_time(time: usize){
+    TASK_MANAGER.mark_task_run_syscall_total_time(time)
 }
 
 pub fn suspend_current_and_run_next(){
@@ -189,8 +250,4 @@ pub fn exit_current_and_run_next(){
     // 先修改当前应用的运行状态，然后尝试切换到下一个应用
     mark_current_exited();
     run_next_task();
-}
-
-pub fn current_task() -> TaskControlBlock{
-    __current_task()
 }

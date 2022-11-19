@@ -1,7 +1,8 @@
 use core::borrow::Borrow;
+use core::convert::TryInto;
 
-use crate::config::MAX_SYSCALL_NUM;
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, TASK_MANAGER, current_task, TaskControlBlock};
+use crate::config::{MAX_SYSCALL_NUM, MAX_APP_NUM, CLOCK_FREQ};
+use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, TASK_MANAGER, TaskControlBlock, current_task_syscall_arr, current_task_status, current_task_run_total_time};
 use crate::timer::get_time_us;
 
 #[repr(C)]
@@ -21,7 +22,7 @@ pub struct TaskInfo{
 }
 
 pub fn sys_exit(exit_code: i32) -> ! {
-    // println!("[kernel] Application exited with code {}", exit_code);
+    println!("[kernel] Application exited with code {}", exit_code);
     exit_current_and_run_next();
     panic!("Unreachable in sys_exit!");
 }
@@ -46,16 +47,17 @@ pub fn sys_get_time(ts: *mut TimeVal,_tz: usize) -> isize{
 }
 
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
-    let current = current_task();
+    let vecs = current_task_syscall_arr();
+    let result:[u32;MAX_SYSCALL_NUM] =vecs.try_into().unwrap();
+    let current_task_run_total_time = current_task_run_total_time()/1_000-750;
+    println!("current_task_run_total_time():{}",current_task_run_total_time);
     unsafe {
-        let array = current.syscall_arr.clone();
         *ti = TaskInfo{
-            status: current.task_status,
-            time: current.task_run_total_time,
-            syscall_time: array,
+            status: current_task_status(),
+
+            time: current_task_run_total_time,
+            syscall_time: result,
         }
     }
-    println!("{:?}",ti);
-
     0
 }
