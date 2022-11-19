@@ -66,7 +66,7 @@ impl TaskManager {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
         if inner.tasks[current].task_status == TaskStatus::Running {
-            inner.tasks[current].task_run_total_time = inner.tasks[current].task_run_total_time + (get_time() - inner.tasks[current].task_run_start_time)
+            inner.tasks[current].task_run_total_time = inner.tasks[current].task_run_total_time + (get_time_us() - inner.tasks[current].task_run_start_time)
         }
         inner.tasks[current].task_status = TaskStatus::Ready;
         inner.tasks[current].task_run_start_time = 0;
@@ -106,6 +106,11 @@ impl TaskManager {
         let current_task = inner.tasks[current].borrow_mut();
         current_task.task_run_syscall_total_time += time;
     }
+
+    fn current_task_start_time(&self)->usize{
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].task_start_time
+    }
     /**
      * 查找下一个任务并运行
      */
@@ -116,7 +121,7 @@ impl TaskManager {
             let current  = inner.current_task;
             // 标记当前任务为运行状态
             inner.tasks[next].task_status = TaskStatus::Running;
-            inner.tasks[next].task_run_start_time = get_time();
+            inner.tasks[next].task_run_start_time = get_time_us();
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
@@ -151,7 +156,7 @@ impl TaskManager {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
         if inner.tasks[current].task_status == TaskStatus::Running {
-            inner.tasks[current].task_run_total_time = inner.tasks[current].task_run_total_time + (get_time() - inner.tasks[current].task_run_start_time)
+            inner.tasks[current].task_run_total_time = inner.tasks[current].task_run_total_time + (get_time_us() - inner.tasks[current].task_run_start_time)
         }
         inner.tasks[current].task_status = TaskStatus::Exited;
         inner.tasks[current].task_run_start_time = 0;
@@ -167,7 +172,8 @@ lazy_static!{
             tasks[i] = TaskControlBlock{
                     task_cx: TaskContext::zero_init(),
                     task_status: TaskStatus::UnInit,
-                    task_run_start_time: get_time(),
+                    task_start_time: get_time_us(),
+                    task_run_start_time: get_time_us(),
                     task_run_total_time: 0,
                     task_run_syscall_total_time :0,
                     syscall_arr:  Vec::with_capacity(MAX_SYSCALL_NUM),
@@ -238,6 +244,9 @@ pub fn task_run_syscall_total_time() -> usize{
 }
 pub fn mark_task_run_syscall_total_time(time: usize){
     TASK_MANAGER.mark_task_run_syscall_total_time(time)
+}
+pub fn current_task_start_time() -> usize{
+    TASK_MANAGER.current_task_start_time()
 }
 
 pub fn suspend_current_and_run_next(){

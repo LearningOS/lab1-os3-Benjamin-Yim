@@ -2,7 +2,7 @@ use core::borrow::Borrow;
 use core::convert::TryInto;
 
 use crate::config::{MAX_SYSCALL_NUM, MAX_APP_NUM, CLOCK_FREQ};
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, TASK_MANAGER, TaskControlBlock, current_task_syscall_arr, current_task_status, current_task_run_total_time};
+use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, TASK_MANAGER, TaskControlBlock, current_task_syscall_arr, current_task_status, current_task_run_total_time, task_run_syscall_total_time, current_task_start_time};
 use crate::timer::get_time_us;
 
 #[repr(C)]
@@ -49,13 +49,11 @@ pub fn sys_get_time(ts: *mut TimeVal,_tz: usize) -> isize{
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
     let vecs = current_task_syscall_arr();
     let result:[u32;MAX_SYSCALL_NUM] =vecs.try_into().unwrap();
-    let current_task_run_total_time = current_task_run_total_time()/1_000-750;
-    println!("current_task_run_total_time():{}",current_task_run_total_time);
+    let current_task_start_time = current_task_start_time();
     unsafe {
         *ti = TaskInfo{
             status: current_task_status(),
-
-            time: current_task_run_total_time,
+            time: (get_time_us() - current_task_start_time)/1000,
             syscall_time: result,
         }
     }
