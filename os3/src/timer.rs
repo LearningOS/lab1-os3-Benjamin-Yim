@@ -13,6 +13,11 @@ pub fn get_time_us() -> usize {
     time::read() / (CLOCK_FREQ / MICRO_PER_SEC)
 }
 
+pub fn get_time_ms() -> usize {
+    get_time_us()/1_000
+}
+
+
 /**
  * timer 子模块的 set_next_trigger 函数对 set_timer 进行了封装， 
  * 它首先读取当前 mtime 的值，然后计算出 10ms 之内计数器的增量，

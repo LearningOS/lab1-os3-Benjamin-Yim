@@ -3,7 +3,7 @@ use core::convert::TryInto;
 
 use crate::config::{MAX_SYSCALL_NUM, MAX_APP_NUM, CLOCK_FREQ};
 use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, TASK_MANAGER, TaskControlBlock, current_task_syscall_arr, current_task_status, current_task_run_total_time, task_run_syscall_total_time, current_task_start_time};
-use crate::timer::get_time_us;
+use crate::timer::{get_time_us, get_time_ms};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -53,7 +53,7 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
     unsafe {
         *ti = TaskInfo{
             status: current_task_status(),
-            time: (get_time_us() - current_task_start_time)/1000,
+            time: (get_time_ms() - current_task_start_time),
             syscall_time: result,
         }
     }
