@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(linkage)]
+#![feature(linkage)] // 启用弱链接特性
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 
@@ -43,9 +43,9 @@ fn clear_bss() {
         .fill(0);
     }
 }
-
+ /*link_section 宏将 _start 函数编译后的汇编代码放在名为 .text.entry 的代码段中*/
 #[no_mangle]
-#[link_section = ".text.entry"]
+#[link_section = ".text.entry"]  // 方便用户库链接脚本将它作为用户程序的入口
 pub extern "C" fn _start(argc: usize, argv: usize) -> ! {
     clear_bss();
     unsafe {
@@ -69,6 +69,8 @@ pub extern "C" fn _start(argc: usize, argv: usize) -> ! {
     exit(main(argc, v.as_slice()));
 }
 
+// Rust 宏将其标志为弱链接。这样在最后链接的时候， 虽然 lib.rs 和 bin 目录下的某个应用程序中都有 main 符号
+// lib.rs 中的 main 符号是弱链接， 链接器会使用 bin 目录下的函数作为 main
 #[linkage = "weak"]
 #[no_mangle]
 fn main(_argc: usize, _argv: &[&str]) -> i32 {

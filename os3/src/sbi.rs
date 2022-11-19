@@ -21,7 +21,11 @@ fn sbi_call(which: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {
     ret
 }
 
+/**
+ * 触发时钟中断
+ */
 pub fn set_timer(timer: usize) {
+    // 用来设置 mtimecmp 的值
     sbi_call(SBI_SET_TIMER, timer, 0, 0);
 }
 

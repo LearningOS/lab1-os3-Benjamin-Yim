@@ -40,6 +40,9 @@ pub const SYSCALL_CONDVAR_CREATE: usize = 471;
 pub const SYSCALL_CONDVAR_SIGNAL: usize = 472;
 pub const SYSCALL_CONDVAR_WAIT: usize = 473;
 
+// RISC-V 寄存器编号从 0~31 ，表示为 x0~x31 。 其中： - x10~x17 : 对应 a0~a7 - x1 ：对应 ra
+// 约定寄存器 a0~a6 保存系统调用的参数
+// a0 保存系统调用的返回值， 寄存器 a7 用来传递 syscall ID
 pub fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
     unsafe {

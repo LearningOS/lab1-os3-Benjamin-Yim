@@ -1,5 +1,5 @@
 use crate::config::*;
-use crate::trap::TrapContext;
+use crate::trap::context::TrapContext;
 
 #[repr(align(4096))]
 #[derive(Copy, Clone)]
@@ -39,7 +39,7 @@ impl UserStack {
         self.data.as_ptr() as usize + USER_STACK_SIZE
     }
 }
-
+// 第  个应用被加载到以物理地址 base_i 开头的一段物理内存上
 fn get_base_i(app_id: usize) -> usize {
     APP_BASE_ADDRESS + app_id * APP_SIZE_LIMIT
 }
@@ -51,6 +51,7 @@ pub fn get_num_app() -> usize {
     unsafe { (_num_app as usize as *const usize).read_volatile() }
 }
 
+// load_apps 函数负责将所有用户程序在内核初始化的时一并加载进内存。
 pub fn load_apps() {
     extern "C" {
         fn _num_app();
